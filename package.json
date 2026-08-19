@@ -1,0 +1,13 @@
+{
+  "name": "continuous-quality-platform-poc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "POC for correlating quality signals into explainable delivery decisions",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
