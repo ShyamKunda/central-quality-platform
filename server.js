@@ -1,126 +1,74 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { URL } = require('node:url');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const PUBLIC = path.join(__dirname, 'public');
 
-const applications = [
-  {
-    id: 'checkout-api', name: 'Checkout API', owner: 'Payments', change: 'pay-7f31c9a', environment: 'production',
-    policy: { title: 'Payment safety gate', description: 'Block risky payment changes; warn when operational confidence is incomplete.' },
-    signals: [
-      { id: 'tests', source: 'CI', label: 'Test reliability', unit: '%', raw: 98.6, target: 98, direction: 'higher', weight: 25, transform: 'Pass rate adjusted for flaky retries' },
-      { id: 'cve', source: 'SAST', label: 'Critical vulnerabilities', unit: 'critical', raw: 0, target: 0, direction: 'lower', weight: 30, transform: 'Critical CVEs introduced by this change' },
-      { id: 'latency', source: 'APM', label: 'Checkout p95 latency', unit: 'ms', raw: 282, target: 300, direction: 'lower', weight: 20, transform: 'Canary p95 vs 7-day production baseline' },
-      { id: 'errors', source: 'Canary', label: 'Error budget burn', unit: 'x', raw: 1.1, target: 2, direction: 'lower', weight: 15, transform: 'One-hour burn rate normalized to SLO' },
-      { id: 'review', source: 'Git', label: 'Required approvals', unit: '%', raw: 100, target: 100, direction: 'higher', weight: 10, transform: 'Signed approvals / required approvals' }
-    ]
-  },
-  {
-    id: 'identity-service', name: 'Identity Service', owner: 'Platform Security', change: 'id-21d48e0', environment: 'staging',
-    policy: { title: 'Authentication integrity', description: 'Require security evidence and protect login success and latency.' },
-    signals: [
-      { id: 'contract', source: 'CI', label: 'Contract tests', unit: '%', raw: 100, target: 100, direction: 'higher', weight: 20, transform: 'Passed consumer contracts / total contracts' },
-      { id: 'secrets', source: 'Scanner', label: 'Leaked secrets', unit: 'findings', raw: 0, target: 0, direction: 'lower', weight: 30, transform: 'Verified secrets introduced in diff' },
-      { id: 'login', source: 'Synthetic', label: 'Login success', unit: '%', raw: 99.7, target: 99.5, direction: 'higher', weight: 20, transform: 'Successful regional login journeys' },
-      { id: 'latency', source: 'APM', label: 'Token issue p99', unit: 'ms', raw: 410, target: 450, direction: 'lower', weight: 15, transform: 'P99 token issuance during canary' },
-      { id: 'threat', source: 'Review', label: 'Threat model freshness', unit: 'days', raw: 24, target: 90, direction: 'lower', weight: 15, transform: 'Days since relevant threat model review' }
-    ]
-  },
-  {
-    id: 'catalog-web', name: 'Catalog Web', owner: 'Storefront', change: 'web-a918be2', environment: 'preview',
-    policy: { title: 'Customer experience', description: 'Balance functional, accessibility, performance, and visual confidence.' },
-    signals: [
-      { id: 'e2e', source: 'Playwright', label: 'Critical journeys', unit: '%', raw: 97, target: 98, direction: 'higher', weight: 25, transform: 'Stable pass rate for revenue journeys' },
-      { id: 'a11y', source: 'Axe', label: 'Accessibility violations', unit: 'serious', raw: 1, target: 0, direction: 'lower', weight: 20, transform: 'Serious or critical WCAG violations' },
-      { id: 'lcp', source: 'Lighthouse', label: 'Largest Contentful Paint', unit: 's', raw: 2.3, target: 2.5, direction: 'lower', weight: 20, transform: 'Mobile p75 LCP on preview build' },
-      { id: 'visual', source: 'Percy', label: 'Visual diff', unit: '%', raw: 0.7, target: 1, direction: 'lower', weight: 15, transform: 'Changed pixels excluding approved regions' },
-      { id: 'bundle', source: 'Build', label: 'JS bundle growth', unit: '%', raw: 2.1, target: 3, direction: 'lower', weight: 20, transform: 'Compressed entry bundle delta' }
-    ]
-  },
-  {
-    id: 'recommendation-engine', name: 'Recommendation Engine', owner: 'Personalization', change: 'ml-55c029f', environment: 'shadow',
-    policy: { title: 'Responsible model promotion', description: 'Promote only when quality improves without fairness or stability regressions.' },
-    signals: [
-      { id: 'ndcg', source: 'ML Eval', label: 'Ranking quality NDCG', unit: '', raw: 0.812, target: 0.8, direction: 'higher', weight: 25, transform: 'Offline NDCG@10 on holdout set' },
-      { id: 'drift', source: 'Feature Store', label: 'Feature drift PSI', unit: '', raw: 0.11, target: 0.2, direction: 'lower', weight: 20, transform: 'Max population stability index' },
-      { id: 'fairness', source: 'ML Eval', label: 'Exposure disparity', unit: '%', raw: 3.4, target: 5, direction: 'lower', weight: 25, transform: 'Maximum segment exposure gap' },
-      { id: 'inference', source: 'Shadow', label: 'Inference p95', unit: 'ms', raw: 74, target: 80, direction: 'lower', weight: 15, transform: 'Shadow traffic p95 model latency' },
-      { id: 'coverage', source: 'Data Quality', label: 'Feature completeness', unit: '%', raw: 99.2, target: 99, direction: 'higher', weight: 15, transform: 'Non-null required online features' }
-    ]
-  },
-  {
-    id: 'fulfillment-worker', name: 'Fulfillment Worker', owner: 'Operations', change: 'ops-c87e41d', environment: 'canary',
-    policy: { title: 'Operational resilience', description: 'Protect order processing, recovery, observability, and safe rollout.' },
-    signals: [
-      { id: 'integration', source: 'CI', label: 'Integration tests', unit: '%', raw: 99, target: 98, direction: 'higher', weight: 20, transform: 'Pass rate across carrier integrations' },
-      { id: 'lag', source: 'Kafka', label: 'Consumer lag', unit: 'messages', raw: 640, target: 1000, direction: 'lower', weight: 20, transform: 'Max canary partition lag over 15 min' },
-      { id: 'dlq', source: 'Runtime', label: 'Dead-letter rate', unit: '%', raw: 0.03, target: 0.1, direction: 'lower', weight: 25, transform: 'Dead-lettered / processed messages' },
-      { id: 'rollback', source: 'Deploy', label: 'Rollback readiness', unit: '%', raw: 100, target: 100, direction: 'higher', weight: 20, transform: 'Validated rollback steps completed' },
-      { id: 'alerts', source: 'Observability', label: 'Runbook coverage', unit: '%', raw: 92, target: 90, direction: 'higher', weight: 15, transform: 'Actionable alerts linked to current runbooks' }
-    ]
-  }
+const rows = [
+  ['checkout-api','Checkout API','Payments','sha1:7f31c9a','production','enforce','tier-1','Payment safety gate','Block risky payment changes; warn when operational confidence is incomplete.',[
+    ['tests','CI','Test reliability','ratio',98.6,98,'higher','%','Pass rate adjusted for flaky retries',25,'test'],['cve','Trivy','Critical vulnerabilities','count',0,0,'lower','critical','Critical CVEs introduced by this change',30,'security'],['latency','APM','Checkout p95 latency','delta',282,300,'lower','ms','Canary p95 vs 7-day production baseline',20,'performance'],['errors','Canary','Error budget burn','threshold',1.1,2,'lower','x','One-hour burn rate normalized to SLO',15,'production_slo'],['review','Git','Required approvals','ratio',100,100,'higher','%','Signed approvals / required approvals',10,'governance']]],
+  ['identity-service','Identity Service','Platform Security','sha1:21d48e0','staging','warn','tier-1','Authentication integrity','Require security evidence and protect login success and latency.',[
+    ['contract','Pact','Contract tests','ratio',100,100,'higher','%','Passed consumer contracts / total contracts',20,'contract'],['secrets','gitleaks','Leaked secrets','count',0,0,'lower','findings','Verified secrets introduced in diff',30,'security'],['login','Synthetic','Login success','ratio',99.7,99.5,'higher','%','Successful regional login journeys',20,'test'],['latency','APM','Token issue p99','delta',410,450,'lower','ms','P99 token issuance during canary',15,'performance'],['threat','Review','Threat model freshness','threshold',24,90,'lower','days','Days since relevant threat model review',15,'governance']]],
+  ['catalog-web','Catalog Web','Storefront','sha1:a918be2','preview','observe','tier-2','Customer experience','Balance functional, accessibility, performance, and visual confidence.',[
+    ['e2e','Playwright','Critical journeys','ratio',97,98,'higher','%','Stable pass rate for revenue journeys',25,'test'],['a11y','Axe','Accessibility violations','count',1,0,'lower','serious','Serious or critical WCAG violations',20,'static_analysis'],['lcp','Lighthouse','Largest Contentful Paint','threshold',2.3,2.5,'lower','s','Mobile p75 LCP on preview build',20,'performance'],['visual','Percy','Visual diff','delta',0.7,1,'lower','%','Changed pixels excluding approved regions',15,'test'],['bundle','Build','JS bundle growth','delta',2.1,3,'lower','%','Compressed entry bundle delta',20,'performance']]],
+  ['recommendation-engine','Recommendation Engine','Personalization','sha1:55c029f','shadow','warn','tier-2','Responsible model promotion','Promote only when quality improves without fairness or stability regressions.',[
+    ['ndcg','ML Eval','Ranking quality NDCG','distribution',0.812,0.8,'higher','','Offline NDCG@10 on holdout set',25,'model_eval'],['drift','Feature Store','Feature drift PSI','distribution',0.11,0.2,'lower','','Max population stability index',20,'model_eval'],['fairness','ML Eval','Exposure disparity','distribution',3.4,5,'lower','%','Maximum segment exposure gap',25,'model_eval'],['inference','Shadow','Inference p95','delta',74,80,'lower','ms','Shadow traffic p95 model latency',15,'performance'],['coverage','Data Quality','Feature completeness','ratio',99.2,99,'higher','%','Non-null required online features',15,'data_quality']]],
+  ['fulfillment-worker','Fulfillment Worker','Operations','sha1:c87e41d','canary','enforce','tier-1','Operational resilience','Protect order processing, recovery, observability, and safe rollout.',[
+    ['integration','CI','Integration tests','ratio',99,98,'higher','%','Pass rate across carrier integrations',20,'test'],['lag','Kafka','Consumer lag','threshold',640,1000,'lower','messages','Max canary partition lag over 15 min',20,'performance'],['dlq','Runtime','Dead-letter rate','ratio',0.03,0.1,'lower','%','Dead-lettered / processed messages',25,'production_slo'],['rollback','Deploy','Rollback readiness','verdict',100,100,'higher','%','Validated rollback steps completed',20,'deploy_verification'],['alerts','Observability','Runbook coverage','ratio',92,90,'higher','%','Actionable alerts linked to current runbooks',15,'governance']]]
 ];
 
-function normalize(signal, raw = signal.raw) {
-  if (signal.target === 0) return raw === 0 ? 100 : Math.max(0, 100 - raw * 35);
-  const ratio = signal.direction === 'higher' ? raw / signal.target : signal.target / Math.max(raw, 0.0001);
-  return Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+const applications = rows.map(([id,name,owner,change,environment,mode,tier,title,description,signals]) => ({ id,name,owner,change,environment,mode,tier,policy:{title,description},signals:signals.map(([sid,source,label,kind,raw,target,direction,unit,transform,weight,category])=>({id:sid,source,label,kind,raw,target,direction,unit,transform,weight,category,failClosed:category==='security'})) }));
+const runtime = new Map(applications.map(app => [app.id,{mode:app.mode,overrides:{},statuses:{},trust:{},waivers:{},thresholds:{},history:[],revision:0}]));
+const nowIso=()=>new Date().toISOString();
+const uid=prefix=>`${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(2).toString('hex')}`;
+
+function normalize(signal,raw=signal.raw,target=signal.target){if(target===0)return raw===0?100:Math.max(0,100-raw*35);const ratio=signal.direction==='higher'?raw/target:target/Math.max(raw,.0001);return Math.round(Math.max(0,Math.min(1,ratio))*100);}
+function makeSubjects(app){const short=app.change.replace('sha1:','');const hash=s=>crypto.createHash('sha256').update(`${short}-${s}`).digest('hex').slice(0,12);return [{kind:'commit',label:'Source change',digest:app.change,stage:'commit'},{kind:'build',label:'CI execution',digest:`sha256:${hash('build')}`,stage:'build'},{kind:'artifact',label:'Immutable image',digest:`sha256:${hash('artifact')}`,stage:'integration'},{kind:'deployment',label:`${app.environment} instance`,digest:`sha256:${hash(app.environment)}`,stage:'deployment'},{kind:'service_window',label:'Production window',digest:`window:${short}-15m`,stage:'production'}];}
+
+function ruleForSignal(s){
+  if(s.status==='pending')return{rule:`evidence.${s.id}.complete`,verdict:'unknown',class:'blocking',cause:'required_evidence_pending',detail:`${s.label} is still running; deadline ${s.deadline}.`,remediation:{action:'await_or_request_exception'},evidence:[s.signalId]};
+  if(['expired','missing'].includes(s.status))return{rule:`evidence.${s.id}.complete`,verdict:'unknown',class:'blocking',cause:s.status==='expired'?'evidence_expired':'required_evidence_missing',detail:`${s.label} is ${s.status}.`,remediation:{action:'rerun_check'},evidence:[]};
+  if(s.status==='outage')return{rule:`evidence.${s.id}.available`,verdict:s.failClosed?'fail':'unknown',class:s.failClosed?'blocking':'advisory',cause:'producer_unavailable',detail:`${s.source} is unavailable; ${s.failClosed?'this category fails closed':'using degraded mode'}.`,remediation:{action:'check_producer_status'},evidence:[]};
+  if(s.waiver)return{rule:`${s.category}.${s.id}`,verdict:'warn',class:'advisory',cause:'temporary_waiver',detail:`Finding waived by ${s.waiver.owner} until ${s.waiver.expiresAt}.`,remediation:{action:'review_waiver',ticket:s.waiver.ticket},evidence:[s.signalId]};
+  if(!s.passed&&s.trust==='quarantined')return{rule:`${s.category}.${s.id}`,verdict:'warn',class:'advisory',cause:'check_quarantined',detail:`${s.label} failed but lost its veto after conflicting results.`,remediation:{action:'fix_or_restore_check'},evidence:[s.signalId]};
+  if(!s.passed)return{rule:`${s.category}.${s.id}`,verdict:'fail',class:s.weight>=25?'blocking':'advisory',cause:'threshold_exceeded',detail:`Measured ${s.raw}${s.unit?` ${s.unit}`:''}; required ${s.direction==='higher'?'>=':'<='} ${s.target}${s.unit?` ${s.unit}`:''}.`,remediation:{action:'open_source_run',url:`https://example.invalid/runs/${s.signalId}`},evidence:[s.signalId]};
+  return{rule:`${s.category}.${s.id}`,verdict:'pass',class:s.weight>=25?'blocking':'advisory',detail:`${s.label} satisfies its requirement.`,evidence:[s.signalId]};
 }
 
-function evaluate(app, overrides = {}) {
-  const signals = app.signals.map(signal => {
-    const raw = Number(overrides[signal.id] ?? signal.raw);
-    const score = normalize(signal, raw);
-    const passed = signal.direction === 'higher' ? raw >= signal.target : raw <= signal.target;
-    return { ...signal, raw, score, passed };
-  });
-  const confidence = Math.round(signals.reduce((sum, s) => sum + s.score * s.weight, 0) / signals.reduce((sum, s) => sum + s.weight, 0));
-  const failed = signals.filter(s => !s.passed);
-  const criticalFailure = failed.some(s => s.weight >= 25);
-  const decision = criticalFailure || confidence < 75 ? 'BLOCK' : failed.length || confidence < 90 ? 'WARN' : 'ALLOW';
-  const reason = decision === 'ALLOW' ? 'All policy requirements are satisfied.' : `${failed.length} policy requirement${failed.length === 1 ? '' : 's'} need attention.`;
-  return { ...app, signals, confidence, decision, reason, evaluatedAt: new Date().toISOString(), evidenceId: `ev-${app.change}-${Date.now().toString(36)}` };
+function evaluate(app,options={}){
+  const state=runtime.get(app.id),subjects=makeSubjects(app),observedAt=nowIso();
+  const signals=app.signals.map((base,index)=>{const target=Number(state.thresholds[base.id]?.applied??base.target),raw=Number(state.overrides[base.id]??base.raw),statusInfo=state.statuses[base.id]||{status:'present'},passed=base.direction==='higher'?raw>=target:raw<=target,trust=state.trust[base.id]||'active';return{...base,target,raw,score:normalize(base,raw,target),passed,trust,gating:trust==='active',status:statusInfo.status,deadline:statusInfo.deadline,waiver:state.waivers[base.id]||null,signalId:`sig-${app.id}-${base.id}`,subject:subjects[Math.min(index,subjects.length-1)].digest,occurredAt:observedAt,receivedAt:observedAt};});
+  const rules=signals.map(ruleForSignal);const completeness={requiredPresent:signals.filter(s=>s.status==='present').map(s=>s.id),requiredMissing:signals.filter(s=>s.status==='missing').map(s=>s.id),pending:signals.filter(s=>s.status==='pending').map(s=>({checkId:s.id,deadline:s.deadline})),expired:signals.filter(s=>s.status==='expired').map(s=>s.id),missingDueToOutage:signals.filter(s=>s.status==='outage').map(s=>s.id)};
+  const blockingFail=rules.some(r=>r.class==='blocking'&&r.verdict==='fail'),insufficient=completeness.requiredMissing.length||completeness.expired.length,pending=completeness.pending.length,advisory=rules.some(r=>r.class==='advisory'&&r.verdict!=='pass');
+  let rawOutcome=blockingFail?'blocked':insufficient?'insufficient_evidence':pending?'require_additional_validation':advisory?'proceed_with_warning':'proceed',outcome=rawOutcome,modeDowngraded=false;
+  if(state.mode==='observe'&&rawOutcome!=='proceed'){outcome='proceed';modeDowngraded=true;}if(state.mode==='warn'&&['blocked','insufficient_evidence'].includes(rawOutcome)){outcome='proceed_with_warning';modeDowngraded=true;}
+  const confidence=Math.round(signals.reduce((n,s)=>n+s.score*s.weight,0)/signals.reduce((n,s)=>n+s.weight,0)),degraded=completeness.missingDueToOutage.length>0||rules.some(r=>r.cause==='check_quarantined'),decisionId=options.decisionId||`decision-${app.id}-${state.revision}`;
+  return{...app,mode:state.mode,subjects,signals,rules,completeness,confidence,outcome,rawOutcome,modeDowngraded,degraded,decisionId,evidenceId:`evidence-${app.id}-${state.revision}`,policyDigest:`sha256:${crypto.createHash('sha256').update(`${app.id}-${state.mode}-${JSON.stringify(state.thresholds)}`).digest('hex').slice(0,16)}`,evaluatedAt:observedAt,thresholds:state.thresholds,history:state.history};
 }
 
-function json(res, status, value) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(value));
-}
+function recordDecision(app,cause){const state=runtime.get(app.id);state.revision+=1;const decision=evaluate(app,{decisionId:uid('decision')}),previous=state.history.at(-1),entry={decisionId:decision.decisionId,at:decision.evaluatedAt,outcome:decision.outcome,rawOutcome:decision.rawOutcome,cause,supersedes:previous?.decisionId||null,supersededBy:null};if(previous)previous.supersededBy=entry.decisionId;state.history.push(entry);return evaluate(app,{decisionId:entry.decisionId});}
+function applyAction(app,body){const state=runtime.get(app.id),signal=app.signals.find(s=>s.id===body.signalId)||app.signals[0];switch(body.action){
+  case'degrade':state.overrides[signal.id]=signal.direction==='higher'?signal.target*.65:Math.max(signal.target*2,1);break;
+  case'restore':state.overrides={};state.statuses={};state.trust={};state.waivers={};break;
+  case'pending':state.statuses[signal.id]={status:'pending',deadline:new Date(Date.now()+4*3600e3).toISOString()};break;
+  case'arrive':state.statuses[signal.id]={status:'present'};delete state.overrides[signal.id];break;
+  case'outage':state.statuses[signal.id]={status:'outage'};break;
+  case'flaky':state.trust[signal.id]='quarantined';state.overrides[signal.id]=signal.direction==='higher'?signal.target*.7:Math.max(signal.target*2,1);break;
+  case'setMode':if(!['observe','warn','enforce'].includes(body.mode))throw Error('Invalid mode');state.mode=body.mode;break;
+  case'threshold':{const requested=Number(body.value);if(!Number.isFinite(requested))throw Error('Invalid threshold');const floor=signal.direction==='higher'?signal.target*.75:signal.target===0?0:signal.target*1.5,applied=signal.direction==='higher'?Math.max(requested,floor):Math.min(requested,floor);state.thresholds[signal.id]={requested,applied,floor,clamped:requested!==applied,direction:signal.direction};break;}
+  case'waive':state.waivers[signal.id]={justification:body.justification||'vulnerable_code_not_in_execute_path',owner:body.owner||app.owner,ticket:body.ticket||'CQP-POC',expiresAt:new Date(Date.now()+14*86400e3).toISOString()};break;
+  case'regression':{const candidate=app.signals.find(s=>s.category==='production_slo')||app.signals.find(s=>s.category==='performance')||signal;state.overrides[candidate.id]=candidate.direction==='higher'?candidate.target*.5:Math.max(candidate.target*3,1);break;}
+  default:throw Error('Unknown action');}return recordDecision(app,body.action);}
+function attestation(app){const d=evaluate(app),statement={_type:'https://in-toto.io/Statement/v1',subject:[{name:app.name,digest:{sha256:d.subjects[2].digest.replace('sha256:','')}}],predicateType:'https://slsa.dev/verification_summary/v1',predicate:{verifier:{id:'cqp-poc'},timeVerified:d.evaluatedAt,resourceUri:`cqp://${app.id}/${d.decisionId}`,policy:{digest:d.policyDigest},verificationResult:d.outcome,_cqp:{rawOutcome:d.rawOutcome,mode:d.mode,reasons:d.rules,evidenceCompleteness:d.completeness}}};return{payloadType:'application/vnd.in-toto+json',payload:statement,signatures:[{keyid:'poc-ed25519-demo',sig:crypto.createHash('sha256').update(JSON.stringify(statement)).digest('base64'),demonstrationOnly:true}]};}
+for(const app of applications)recordDecision(app,'initial_evaluation');
 
-function serveFile(reqPath, res) {
-  const relative = reqPath === '/' ? 'index.html' : reqPath.slice(1);
-  const file = path.normalize(path.join(PUBLIC, relative));
-  if (!file.startsWith(PUBLIC)) return json(res, 403, { error: 'Forbidden' });
-  fs.readFile(file, (error, data) => {
-    if (error) return json(res, 404, { error: 'Not found' });
-    const type = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' }[path.extname(file)] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': `${type}; charset=utf-8` });
-    res.end(data);
-  });
-}
-
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  if (req.method === 'GET' && url.pathname === '/api/apps') return json(res, 200, applications.map(app => evaluate(app)));
-  const match = url.pathname.match(/^\/api\/apps\/([^/]+)\/evaluate$/);
-  if (req.method === 'POST' && match) {
-    const app = applications.find(item => item.id === match[1]);
-    if (!app) return json(res, 404, { error: 'Application not found' });
-    let body = '';
-    req.on('data', chunk => { body += chunk; if (body.length > 1e6) req.destroy(); });
-    req.on('end', () => {
-      try { json(res, 200, evaluate(app, JSON.parse(body || '{}').overrides || {})); }
-      catch { json(res, 400, { error: 'Invalid JSON body' }); }
-    });
-    return;
-  }
-  if (req.method === 'GET') return serveFile(url.pathname, res);
-  json(res, 405, { error: 'Method not allowed' });
-});
-
-if (require.main === module) server.listen(PORT, HOST, () => console.log(`CQP POC running at http://${HOST}:${PORT}`));
-module.exports = { applications, evaluate, normalize, server };
+function json(res,status,value,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers});res.end(JSON.stringify(value));}
+function readBody(req,done){let body='';req.on('data',c=>{body+=c;if(body.length>1e6)req.destroy();});req.on('end',()=>{try{done(null,JSON.parse(body||'{}'));}catch(e){done(e);}});}
+function serveFile(reqPath,res){const relative=reqPath==='/'?'index.html':reqPath.slice(1),file=path.normalize(path.join(PUBLIC,relative));if(!file.startsWith(PUBLIC))return json(res,403,{error:'Forbidden'});fs.readFile(file,(error,data)=>{if(error)return json(res,404,{error:'Not found'});const type={'.html':'text/html','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml'}[path.extname(file)]||'application/octet-stream';res.writeHead(200,{'Content-Type':`${type}; charset=utf-8`});res.end(data);});}
+const server=http.createServer((req,res)=>{const url=new URL(req.url,`http://${req.headers.host||'localhost'}`);if(req.method==='GET'&&url.pathname==='/api/apps')return json(res,200,applications.map(evaluate));const appMatch=url.pathname.match(/^\/api\/apps\/([^/]+)$/),actionMatch=url.pathname.match(/^\/api\/apps\/([^/]+)\/action$/),attestMatch=url.pathname.match(/^\/api\/apps\/([^/]+)\/attestation$/);if(req.method==='GET'&&appMatch){const app=applications.find(a=>a.id===appMatch[1]);return app?json(res,200,evaluate(app)):json(res,404,{error:'Application not found'});}if(req.method==='POST'&&actionMatch){const app=applications.find(a=>a.id===actionMatch[1]);if(!app)return json(res,404,{error:'Application not found'});return readBody(req,(error,body)=>{if(error)return json(res,400,{error:'Invalid JSON'});try{return json(res,200,applyAction(app,body));}catch(e){return json(res,400,{error:e.message});}});}if(req.method==='GET'&&attestMatch){const app=applications.find(a=>a.id===attestMatch[1]);if(!app)return json(res,404,{error:'Application not found'});return json(res,200,attestation(app),{'Content-Disposition':`attachment; filename="${app.id}-attestation.json"`});}if(req.method==='GET')return serveFile(url.pathname,res);json(res,405,{error:'Method not allowed'});});
+if(require.main===module)server.listen(PORT,HOST,()=>console.log(`CQP POC running at http://${HOST}:${PORT}`));
+module.exports={applications,evaluate,normalize,applyAction,attestation,runtime,server};
