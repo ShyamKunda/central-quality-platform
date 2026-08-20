@@ -147,3 +147,87 @@
     grid-template-columns: 1fr;
   }
 }
+
+.primary-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #efeee7;
+}
+
+.primary-tabs button {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-tabs button:hover { color: var(--green); }
+.primary-tabs button[aria-selected="true"] {
+  background: #fff;
+  color: var(--green);
+  box-shadow: 0 1px 3px rgba(25, 36, 30, .12);
+}
+
+.tab-page[hidden] { display: none; }
+.content-page { padding: 56px clamp(20px, 6vw, 88px) 80px; }
+.content-hero { max-width: 850px; margin-bottom: 46px; }
+.content-hero h1 { margin-bottom: 20px; }
+.info-layout { display: grid; grid-template-columns: minmax(300px, .8fr) minmax(420px, 1.2fr); gap: 28px; align-items: start; }
+.content-page .project-card { position: sticky; top: 94px; width: 100%; margin: 0; }
+.principles { display: grid; gap: 10px; }
+.principles article { display: grid; grid-template-columns: 48px 1fr; gap: 15px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.principles article > span { color: var(--green); font: 600 25px Georgia, serif; }
+.principles h3, .story-flow h3, .anatomy-grid h3 { margin: 0 0 5px; font-size: 14px; }
+.principles p, .story-flow p, .anatomy-grid p { margin: 0; color: var(--muted); font-size: 11px; }
+.signal-story { display: grid; gap: 48px; }
+.story-flow { display: grid; grid-template-columns: 1fr 30px 1fr 30px 1fr; gap: 8px; align-items: stretch; }
+.story-flow > article { position: relative; padding: 24px 20px; border: 1px solid var(--line); border-radius: 13px; background: var(--card); }
+.story-flow > b { align-self: center; text-align: center; color: var(--green); font-size: 20px; }
+.story-number { position: absolute; right: 16px; top: 13px; color: #d9ded8; font: 600 38px Georgia, serif; }
+.example-chip { display: inline-block; margin-top: 16px; padding: 7px 9px; border-radius: 6px; background: #e5eee0; color: var(--green); font: 700 9px ui-monospace, monospace; }
+.example-chip.danger { background: #f1d4cf; color: var(--red); }
+.section-heading { margin-bottom: 18px; }
+.section-heading h2, .absence-guide h2 { margin: 5px 0 0; font: 700 27px Georgia, serif; }
+.anatomy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.anatomy-grid article { padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.anatomy-grid code { display: inline-block; margin-bottom: 12px; padding: 4px 7px; border-radius: 5px; background: var(--ink); color: var(--lime); font-size: 9px; }
+.measurement-table { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.table-row { display: grid; grid-template-columns: .6fr 1.1fr 1.6fr; gap: 18px; padding: 13px 16px; border-top: 1px solid #ecebe4; font-size: 11px; }
+.table-row:first-child { border-top: 0; }
+.table-row span:last-child { color: var(--muted); }
+.table-head { background: var(--ink); color: #fff; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.table-head span:last-child { color: #fff; }
+.absence-guide { display: grid; grid-template-columns: .8fr 1.2fr; gap: 35px; padding: 28px; border-radius: 14px; background: var(--ink); color: #fff; }
+.absence-guide > div > p:last-child { color: #aeb9b2; }
+.absence-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.absence-cards article { padding: 14px; border: 1px solid #48564f; border-radius: 9px; background: #202e27; }
+.absence-cards b, .absence-cards span { display: block; }
+.absence-cards b { color: var(--lime); font-size: 10px; }
+.absence-cards span { margin-top: 4px; color: #aeb9b2; font-size: 9px; }
+
+@media (max-width: 950px) {
+  .topbar { height: auto; min-height: 68px; flex-wrap: wrap; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .primary-tabs { order: 3; width: 100%; overflow-x: auto; }
+  .primary-tabs button { flex: 1; white-space: nowrap; }
+  .info-layout { grid-template-columns: 1fr; }
+  .content-page .project-card { position: static; }
+  .story-flow { grid-template-columns: 1fr; }
+  .story-flow > b { transform: rotate(90deg); }
+  .anatomy-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 620px) {
+  .content-page { padding-top: 38px; }
+  .primary-tabs button { min-width: max-content; }
+  .anatomy-grid, .absence-guide, .absence-cards { grid-template-columns: 1fr; }
+  .table-row { grid-template-columns: .6fr 1fr; }
+  .table-row > *:last-child { grid-column: 1 / -1; }
+}

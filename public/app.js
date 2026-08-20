@@ -5,6 +5,21 @@ const label=value=>value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())
 const outcomeKind=value=>value==='proceed'?'proceed':value==='blocked'||value==='insufficient_evidence'?'blocked':'warning';
 const formatSignal=s=>`${Number(s.raw).toLocaleString(undefined,{maximumFractionDigits:3})}${s.unit?` ${s.unit}`:''}`;
 
+function selectTab(id, updateHash=true) {
+  const target=document.getElementById(id)||document.getElementById('home');
+  document.querySelectorAll('.tab-page').forEach(page=>{const active=page===target;page.hidden=!active;page.classList.toggle('active',active);});
+  document.querySelectorAll('[data-tab]').forEach(button=>{const active=button.dataset.tab===target.id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+  if(updateHash&&location.hash!==`#${target.id}`)history.pushState(null,'',`#${target.id}`);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.querySelectorAll('[data-tab]').forEach((button,index,buttons)=>{
+  button.addEventListener('click',()=>selectTab(button.dataset.tab));
+  button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowRight')next=(index+1)%buttons.length;if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;if(event.key==='Home')next=0;if(event.key==='End')next=buttons.length-1;buttons[next].focus();selectTab(buttons[next].dataset.tab);});
+});
+document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();selectTab(link.dataset.tabLink);}));
+window.addEventListener('popstate',()=>selectTab(location.hash.slice(1)||'home',false));
+
 function renderList(){list.innerHTML=state.apps.map(app=>`<button class="app-item ${app.id===state.selected?.id?'active':''}" data-id="${app.id}"><i class="dot ${outcomeKind(app.outcome)}"></i><span><span class="name">${esc(app.name)}</span><small>${esc(app.owner)} · ${app.mode}</small></span><span class="pill ${app.outcome}">${label(app.outcome)}</span></button>`).join('');document.querySelector('#proceed-count').textContent=state.apps.filter(a=>['proceed','proceed_with_warning'].includes(a.outcome)).length;}
 function completenessItem(name,value,issue=false){return `<div class="complete-item ${issue&&value?'issue':''}"><b>${value}</b><span>${name}</span></div>`;}
 
@@ -36,4 +51,4 @@ function openForm(type,signalId){const signal=state.selected.signals.find(s=>s.i
 
 async function act(action,signalId,extra={}){if(state.busy)return;state.busy=true;detail.classList.add('is-busy');try{const response=await fetch(`/api/apps/${state.selected.id}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,signalId,...extra})});const result=await response.json();if(!response.ok)throw Error(result.error||'Action failed');state.selected=result;state.apps=state.apps.map(a=>a.id===result.id?result:a);renderList();renderDetail();}catch(error){alert(error.message);}finally{state.busy=false;detail.classList.remove('is-busy');}}
 async function load(preferredId){detail.innerHTML='<div class="loading">Assembling evidence…</div>';const response=await fetch('/api/apps');state.apps=await response.json();state.selected=state.apps.find(a=>a.id===preferredId)||state.apps[0];document.querySelector('#app-count').textContent=state.apps.length;document.querySelector('#signal-count').textContent=state.apps.reduce((n,a)=>n+a.signals.length,0);document.querySelector('#updated').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});renderList();renderDetail();}
-list.addEventListener('click',e=>{const button=e.target.closest('[data-id]');if(!button)return;state.selected=state.apps.find(a=>a.id===button.dataset.id);renderList();renderDetail();});document.querySelector('#refresh').addEventListener('click',()=>load(state.selected?.id));document.querySelector('.modal-close').addEventListener('click',()=>inspector.close());document.querySelector('.modal-done').addEventListener('click',()=>inspector.close());inspector.addEventListener('click',e=>{if(e.target===inspector)inspector.close();});document.querySelector('#copy-json').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(modalJson.textContent);document.querySelector('#copy-status').textContent='Copied to clipboard';}catch{document.querySelector('#copy-status').textContent='Select and copy manually';}});load();
+list.addEventListener('click',e=>{const button=e.target.closest('[data-id]');if(!button)return;state.selected=state.apps.find(a=>a.id===button.dataset.id);renderList();renderDetail();});document.querySelector('#refresh').addEventListener('click',()=>load(state.selected?.id));document.querySelector('.modal-close').addEventListener('click',()=>inspector.close());document.querySelector('.modal-done').addEventListener('click',()=>inspector.close());inspector.addEventListener('click',e=>{if(e.target===inspector)inspector.close();});document.querySelector('#copy-json').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(modalJson.textContent);document.querySelector('#copy-status').textContent='Copied to clipboard';}catch{document.querySelector('#copy-status').textContent='Select and copy manually';}});selectTab(location.hash.slice(1)||'home',false);load();
