@@ -111,3 +111,20 @@ test('global memory reset restores every application and replaces its history', 
     assert.ok(result.signals.every(signal => signal.status === 'present' && signal.trust === 'active' && !signal.waiver));
   }
 });
+
+test('decision-lab actions target the requested non-first signal only', () => {
+  const app = applications[0];
+  let result = applyAction(app, { action:'degrade', signalId:'latency' });
+  assert.equal(result.signals.find(signal => signal.id === 'tests').raw, 98.6);
+  assert.notEqual(result.signals.find(signal => signal.id === 'latency').raw, 282);
+  result = applyAction(app, { action:'pending', signalId:'review' });
+  assert.equal(result.signals.find(signal => signal.id === 'review').status, 'pending');
+  assert.equal(result.signals.find(signal => signal.id === 'tests').status, 'present');
+});
+
+test('severe regression targets the selected signal instead of choosing another category', () => {
+  const app = applications[0];
+  const result = applyAction(app, { action:'regression', signalId:'review' });
+  assert.equal(result.signals.find(signal => signal.id === 'review').raw, 50);
+  assert.equal(result.signals.find(signal => signal.id === 'errors').raw, 1.1);
+});
