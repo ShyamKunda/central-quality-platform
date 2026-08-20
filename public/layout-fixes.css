@@ -1,0 +1,79 @@
+/* Contain the growing ledger inside the detail grid column. */
+.workspace {
+  grid-template-columns: 270px minmax(0, 1fr);
+  min-width: 0;
+}
+
+.detail {
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.detail-head {
+  min-width: 0;
+}
+
+.detail-head > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.decision-card {
+  display: block;
+  flex: 0 0 205px;
+  min-width: 205px;
+  max-width: 260px;
+}
+
+.history-section {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.history {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 12px;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.history-card {
+  flex: 0 0 195px;
+  width: 195px;
+  min-width: 195px;
+  scroll-snap-align: start;
+}
+
+.history::-webkit-scrollbar { height: 8px; }
+.history::-webkit-scrollbar-track { background: #e8e7df; border-radius: 99px; }
+.history::-webkit-scrollbar-thumb { background: #a9b1ab; border: 2px solid #e8e7df; border-radius: 99px; }
+.history::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
+@media (max-width: 780px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .decision-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 781px) and (max-width: 1050px) {
+  .workspace {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
