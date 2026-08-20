@@ -77,3 +77,73 @@
     grid-template-columns: 240px minmax(0, 1fr);
   }
 }
+
+.project-card {
+  width: min(100%, 610px);
+  margin: 0 0 34px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: 12px;
+  background: rgba(251, 250, 245, .9);
+  box-shadow: 0 12px 34px rgba(29, 39, 34, .06);
+}
+
+.project-card-label {
+  margin: 0 0 12px;
+  color: var(--green);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+.project-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+}
+
+.project-card dl > div {
+  min-width: 0;
+}
+
+.project-card dt,
+.project-notes strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.project-card dd {
+  margin: 3px 0 0;
+  font-weight: 750;
+}
+
+.project-notes {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.project-notes ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 17px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .project-card {
+    margin-bottom: 26px;
+    padding: 16px;
+  }
+
+  .project-card dl {
+    grid-template-columns: 1fr;
+  }
+}
