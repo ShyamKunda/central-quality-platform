@@ -176,6 +176,21 @@
   box-shadow: 0 1px 3px rgba(25, 36, 30, .12);
 }
 
+.reset-memory-btn {
+  border: 1px solid #d5a29c;
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: #fff7f5;
+  color: var(--red);
+  font-size: 8px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.reset-memory-btn:hover { background: #f1d4cf; border-color: var(--red); }
+.reset-memory-btn:disabled { cursor: wait; opacity: .55; }
+
 .tab-page[hidden] { display: none; }
 .content-page { padding: 56px clamp(20px, 6vw, 88px) 80px; }
 .content-hero { max-width: 850px; margin-bottom: 46px; }

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { applications, evaluate, applyAction, attestation, runtime } = require('../server');
+const { applications, evaluate, applyAction, attestation, resetMemory, runtime } = require('../server');
 
 function reset(app) {
   Object.assign(runtime.get(app.id), { mode: app.mode, overrides: {}, statuses: {}, trust: {}, waivers: {}, thresholds: {}, history: [], revision: 0 });
@@ -97,4 +97,17 @@ test('attestation binds outcome to subject and policy digest', () => {
   assert.ok(envelope.payload.subject[0].digest.sha256);
   assert.ok(envelope.payload.predicate.policy.digest.startsWith('sha256:'));
   assert.equal(envelope.signatures[0].demonstrationOnly, true);
+});
+
+test('global memory reset restores every application and replaces its history', () => {
+  applyAction(applications[0], { action:'degrade', signalId:'tests' });
+  applyAction(applications[1], { action:'setMode', mode:'enforce' });
+  const results = resetMemory();
+  assert.equal(results.length, 5);
+  for (const result of results) {
+    assert.equal(result.history.length, 1);
+    assert.equal(result.history[0].cause, 'memory_reset');
+    assert.equal(Object.keys(result.thresholds).length, 0);
+    assert.ok(result.signals.every(signal => signal.status === 'present' && signal.trust === 'active' && !signal.waiver));
+  }
 });
