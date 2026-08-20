@@ -20,6 +20,69 @@ document.querySelectorAll('[data-tab]').forEach((button,index,buttons)=>{
 document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();selectTab(link.dataset.tabLink);}));
 window.addEventListener('popstate',()=>selectTab(location.hash.slice(1)||'home',false));
 
+function mountDecisionConstruction(){
+  const payloads=document.querySelector('.payload-examples');
+  if(!payloads||document.querySelector('.decision-construction'))return;
+  payloads.insertAdjacentHTML('beforebegin',`<section class="decision-construction">
+    <div class="section-heading"><p class="eyebrow">HOW A DECISION IS CONSTRUCTED</p><h2>Evidence plus context becomes an enforceable outcome</h2><p>The raw signal never decides whether deployment is allowed. The engine joins four independently owned inputs, calculates the technically correct result, and only then applies the team's rollout mode.</p></div>
+    <div class="construction-inputs">
+      <article><div class="construction-label"><span>01</span><div><b>Raw signals</b><small>Owned by quality tools</small></div></div><p>What was measured against an immutable subject.</p><pre><code>{
+  "subject": "sha256:9f2c4b81",
+  "check_id": "trivy.vulnerabilities",
+  "measurement": { "kind": "count", "value": 1 },
+  "outcome": "fail"
+}</code></pre></article>
+      <article><div class="construction-label"><span>02</span><div><b>Service catalogue</b><small>Owned by platform governance</small></div></div><p>Who owns the service and how critical it is.</p><pre><code>{
+  "service": "checkout-api",
+  "owner": "payments",
+  "tier": "tier-1",
+  "on_call": "payments-primary"
+}</code></pre></article>
+      <article><div class="construction-label"><span>03</span><div><b>Policy configuration</b><small>Owned centrally and by teams</small></div></div><p>Which gate, rules, floors, and adoption mode apply.</p><pre><code>{
+  "gate": "prod_promotion",
+  "mode": "warn",
+  "policy": "payments/production",
+  "critical_cve_limit": 0
+}</code></pre></article>
+      <article><div class="construction-label"><span>04</span><div><b>Trust &amp; completeness</b><small>Derived by the platform</small></div></div><p>Whether evidence may veto and whether anything required is absent.</p><pre><code>{
+  "trust": { "state": "active", "gating": true },
+  "present": ["trivy.vulnerabilities"],
+  "pending": ["k6.load_suite"],
+  "missing": []
+}</code></pre></article>
+    </div>
+    <div class="merge-rail"><span></span><b>JOINED BY SUBJECT DIGEST + SERVICE IDENTITY</b><span></span></div>
+    <div class="engine-visual"><div class="engine-heading"><span>DECISION ENGINE</span><strong>Pure policy evaluation</strong><small>The confidence score is informational; named rules determine the verdict.</small></div><ol><li><span>1</span><div><b>Resolve identity</b><small>Walk commit → build → artifact → deployment and inherit relevant evidence.</small></div></li><li><span>2</span><div><b>Assemble evidence</b><small>Add service tier, trust state, freshness, and explicit absence classifications.</small></div></li><li><span>3</span><div><b>Evaluate policy</b><small>Every named rule returns pass, fail, warn, or unknown with evidence and remediation.</small></div></li><li><span>4</span><div><b>Apply enforcement mode</b><small>Keep the raw result intact, then translate it using Observe, Warn, or Enforce.</small></div></li></ol><div class="assembled-json"><span>ASSEMBLED ENGINE INPUT</span><pre><code>{
+  "service": { "name": "checkout-api", "tier": "tier-1" },
+  "gate": "prod_promotion",
+  "mode": "warn",
+  "signals": [{
+    "check_id": "trivy.vulnerabilities",
+    "value": 1,
+    "gating": true
+  }],
+  "completeness": {
+    "required_present": ["trivy.vulnerabilities"],
+    "pending": ["k6.load_suite"]
+  },
+  "policy_digest": "sha256:f168063"
+}</code></pre></div></div>
+    <div class="outcome-comparison"><article class="raw-result"><p class="eyebrow">RAW OUTCOME — TECHNICAL TRUTH</p><h3>Blocked</h3><p>What policy concluded before rollout mode. It is never hidden or rewritten.</p><pre><code>{
+  "raw_outcome": "blocked",
+  "rule": "security.no_new_critical",
+  "verdict": "fail",
+  "class": "blocking",
+  "evidence": ["sig-trivy-1042"]
+}</code></pre></article><div class="mode-bridge"><span>WARN MODE</span><b>→</b><small>Preserve failure<br>downgrade action</small></div><article class="enforced-result"><p class="eyebrow">ENFORCED OUTCOME — PIPELINE ACTION</p><h3>Proceed with warning</h3><p>What the pipeline does after applying the team's current adoption mode.</p><pre><code>{
+  "outcome": "proceed_with_warning",
+  "raw_outcome": "blocked",
+  "mode": "warn",
+  "mode_downgraded": true
+}</code></pre></article></div>
+    <div class="interview-takeaway"><strong>Key distinction</strong><span>The signal describes evidence. The catalogue describes criticality. Policy configuration describes expectations. Trust and completeness describe whether evidence is usable. The engine combines them; enforcement mode determines what the pipeline does.</span></div>
+  </section>`);
+}
+
 function renderList(){list.innerHTML=state.apps.map(app=>`<button class="app-item ${app.id===state.selected?.id?'active':''}" data-id="${app.id}"><i class="dot ${outcomeKind(app.outcome)}"></i><span><span class="name">${esc(app.name)}</span><small>${esc(app.owner)} · ${app.mode}</small></span><span class="pill ${app.outcome}">${label(app.outcome)}</span></button>`).join('');document.querySelector('#proceed-count').textContent=state.apps.filter(a=>['proceed','proceed_with_warning'].includes(a.outcome)).length;}
 function completenessItem(name,value,issue=false){return `<div class="complete-item ${issue&&value?'issue':''}"><b>${value}</b><span>${name}</span></div>`;}
 
@@ -60,4 +123,4 @@ async function resetDemoMemory(){
   catch(error){alert(error.message);}
   finally{button.disabled=false;button.textContent='Reset demo';}
 }
-list.addEventListener('click',e=>{const button=e.target.closest('[data-id]');if(!button)return;state.selected=state.apps.find(a=>a.id===button.dataset.id);renderList();renderDetail();});document.querySelector('#refresh').addEventListener('click',()=>load(state.selected?.id));document.querySelector('#reset-memory').addEventListener('click',resetDemoMemory);document.querySelector('.modal-close').addEventListener('click',()=>inspector.close());document.querySelector('.modal-done').addEventListener('click',()=>inspector.close());inspector.addEventListener('click',e=>{if(e.target===inspector)inspector.close();});document.querySelector('#copy-json').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(modalJson.textContent);document.querySelector('#copy-status').textContent='Copied to clipboard';}catch{document.querySelector('#copy-status').textContent='Select and copy manually';}});selectTab(location.hash.slice(1)||'home',false);load();
+list.addEventListener('click',e=>{const button=e.target.closest('[data-id]');if(!button)return;state.selected=state.apps.find(a=>a.id===button.dataset.id);renderList();renderDetail();});document.querySelector('#refresh').addEventListener('click',()=>load(state.selected?.id));document.querySelector('#reset-memory').addEventListener('click',resetDemoMemory);document.querySelector('.modal-close').addEventListener('click',()=>inspector.close());document.querySelector('.modal-done').addEventListener('click',()=>inspector.close());inspector.addEventListener('click',e=>{if(e.target===inspector)inspector.close();});document.querySelector('#copy-json').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(modalJson.textContent);document.querySelector('#copy-status').textContent='Copied to clipboard';}catch{document.querySelector('#copy-status').textContent='Select and copy manually';}});mountDecisionConstruction();selectTab(location.hash.slice(1)||'home',false);load();
