@@ -35,6 +35,24 @@ const flowJsonExamples={
   }
 };
 
+const assemblerJsonExamples={
+  'assembler-json-request':{
+    stage:'BLOCK 01 OUTPUT',title:'Decision request',description:'The enforcement point asks about one immutable subject at one named delivery gate.',data:{request_id:'assemble-441',service:'checkout-api',gate:'production_promotion',subject:{kind:'artifact',digest:{sha256:'9f2c4b81'}},environment:'production',evaluated_at:'2026-08-25T09:30:00Z'}
+  },
+  'assembler-json-graph':{
+    stage:'BLOCK 02 OUTPUT',title:'Resolved subject ancestry',description:'Bidirectional fingerprint links connect the requested artifact to evidence produced at earlier stages.',data:{requested_subject:'artifact:checkout-api@sha256:9f2c4b81',ancestors:[{kind:'build',digest:'sha256:74ad209e'},{kind:'commit',digest:'git:abc123'}],descendants:[{kind:'deployment',digest:'sha256:a0aef494',status:'not_yet_promoted'}],correlation_basis:'immutable_fingerprint'}
+  },
+  'assembler-json-collected':{
+    stage:'BLOCK 03 OUTPUT',title:'Applicable ledger evidence',description:'Signals are loaded for the requested subject and its ancestors; unrelated subjects remain excluded.',data:{subject_scope:['git:abc123','sha256:74ad209e','sha256:9f2c4b81'],signals:[{signal_id:'sig-secrets-210',check_id:'gitleaks.secrets',attached_to:'git:abc123',outcome:'pass',occurred_at:'2026-08-25T09:02:10Z'},{signal_id:'sig-junit-882',check_id:'junit.unit_tests',attached_to:'sha256:74ad209e',outcome:'pass',occurred_at:'2026-08-25T09:08:42Z'},{signal_id:'sig-trivy-1042',check_id:'trivy.vulnerabilities',attached_to:'sha256:9f2c4b81',outcome:'fail',occurred_at:'2026-08-25T09:14:22Z'},{signal_id:'sig-k6-7301',check_id:'k6.load_suite',attached_to:'sha256:9f2c4b81',outcome:'pending',decide_by:'2026-08-25T13:14:22Z'}],excluded:[{signal_id:'sig-junit-old',reason:'different_artifact_ancestry'}]}
+  },
+  'assembler-json-classified':{
+    stage:'BLOCK 04 OUTPUT',title:'Time and completeness classification',description:'Every required check is assigned one explicit state using event time, freshness, deadlines, and producer health.',data:{evaluated_at:'2026-08-25T09:30:00Z',gate_requirements:['gitleaks.secrets','junit.unit_tests','trivy.vulnerabilities','k6.load_suite','pact.contracts','sonarqube.quality_gate','snyk.dependencies'],required_present:['gitleaks.secrets','junit.unit_tests','trivy.vulnerabilities'],pending:[{check_id:'k6.load_suite',deadline:'2026-08-25T13:14:22Z'}],required_missing:['pact.contracts'],expired:[{check_id:'sonarqube.quality_gate',expired_at:'2026-08-25T09:10:00Z'}],missing_due_to_outage:[{check_id:'snyk.dependencies',producer:'snyk',outage_id:'inc-209'}]}
+  },
+  'assembler-json-snapshot':{
+    stage:'BLOCK 05 OUTPUT',title:'Clock-free policy snapshot',description:'All time arithmetic and correlation are complete. Policy evaluates this fixed JSON value as a pure function.',data:{assembly_id:'evidence-checkout-441',subject:{kind:'artifact',digest:{sha256:'9f2c4b81'}},subject_chain:['git:abc123','sha256:74ad209e','sha256:9f2c4b81'],gate:'production_promotion',evaluated_at:'2026-08-25T09:30:00Z',evidence:[{check_id:'gitleaks.secrets',signal_id:'sig-secrets-210',outcome:'pass',inherited_from:'commit'},{check_id:'junit.unit_tests',signal_id:'sig-junit-882',outcome:'pass',inherited_from:'build'},{check_id:'trivy.vulnerabilities',signal_id:'sig-trivy-1042',outcome:'fail',attached_to:'artifact'}],completeness:{required_present:['gitleaks.secrets','junit.unit_tests','trivy.vulnerabilities'],pending:['k6.load_suite'],required_missing:['pact.contracts'],expired:['sonarqube.quality_gate'],missing_due_to_outage:['snyk.dependencies']},clock_free:true}
+  }
+};
+
 function showFlowJson(id){
   const example=flowJsonExamples[id];if(!example)return;
   document.querySelectorAll('.json-toggle').forEach(button=>button.classList.toggle('active',button.dataset.json===id));
@@ -47,6 +65,43 @@ function showFlowJson(id){
 document.querySelectorAll('.json-toggle').forEach(button=>button.addEventListener('click',()=>showFlowJson(button.dataset.json)));
 document.querySelector('#flow-copy-json')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(document.querySelector('#flow-json-code').textContent);event.currentTarget.textContent='Copied';setTimeout(()=>event.currentTarget.textContent='Copy JSON',1200);}catch{event.currentTarget.textContent='Select and copy';}});
 showFlowJson('flow-json-source');
+
+function showAssemblerJson(id){
+  const example=assemblerJsonExamples[id];if(!example)return;
+  document.querySelectorAll('.assembler-json-toggle').forEach(button=>button.classList.toggle('active',button.dataset.json===id));
+  document.querySelector('#assembler-json-stage').textContent=example.stage;
+  document.querySelector('#assembler-json-title').textContent=example.title;
+  document.querySelector('#assembler-json-description').textContent=example.description;
+  document.querySelector('#assembler-json-code').textContent=JSON.stringify(example.data,null,2);
+}
+
+const flowPanelNotes={
+  'gateway-adapter':{title:'Reusable, not per team',copy:'Twenty teams using JUnit share one versioned JUnit adapter. Each pipeline execution supplies its own subject and run context.',json:'flow-json-source'},
+  'evidence-assembler':{title:'One place owns time',copy:'Freshness, deadlines, and production windows are resolved before policy. The resulting policy input contains facts, not a moving clock.',json:'assembler-json-request'}
+};
+
+function selectFlowPanel(id){
+  const target=document.querySelector(`[data-flow-panel="${id}"]`);if(!target)return;
+  document.querySelectorAll('[data-flow-panel]').forEach(panel=>panel.hidden=panel!==target);
+  document.querySelectorAll('.flow-nav-item[data-flow]').forEach(button=>{const active=button.dataset.flow===id;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+  const note=flowPanelNotes[id];document.querySelector('#flow-nav-note-title').textContent=note.title;document.querySelector('#flow-nav-note-copy').textContent=note.copy;
+  if(id==='evidence-assembler')showAssemblerJson(note.json);else showFlowJson(note.json);
+}
+
+document.querySelectorAll('.flow-nav-item[data-flow]').forEach(button=>button.addEventListener('click',()=>selectFlowPanel(button.dataset.flow)));
+document.querySelectorAll('.assembler-json-toggle').forEach(button=>button.addEventListener('click',()=>showAssemblerJson(button.dataset.json)));
+document.querySelector('#assembler-copy-json')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(document.querySelector('#assembler-json-code').textContent);event.currentTarget.textContent='Copied';setTimeout(()=>event.currentTarget.textContent='Copy JSON',1200);}catch{event.currentTarget.textContent='Select and copy';}});
+showAssemblerJson('assembler-json-request');
+
+function selectAssemblerTab(id){
+  document.querySelectorAll('[data-assembler-tab-panel]').forEach(panel=>panel.hidden=panel.dataset.assemblerTabPanel!==id);
+  document.querySelectorAll('[data-assembler-tab]').forEach(button=>{const active=button.dataset.assemblerTab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+}
+document.querySelectorAll('[data-assembler-tab]').forEach((button,index,buttons)=>{
+  button.addEventListener('click',()=>selectAssemblerTab(button.dataset.assemblerTab));
+  button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowRight')next=(index+1)%buttons.length;if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;if(event.key==='Home')next=0;if(event.key==='End')next=buttons.length-1;buttons[next].focus();selectAssemblerTab(buttons[next].dataset.assemblerTab);});
+});
+selectAssemblerTab('overview');
 
 function mountDecisionConstruction(){
   const payloads=document.querySelector('.payload-examples');
