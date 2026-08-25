@@ -53,6 +53,15 @@ const assemblerJsonExamples={
   }
 };
 
+const policyJsonExamples={
+  'policy-json-input':{stage:'BLOCK 01 OUTPUT',title:'Policy-ready evidence snapshot',description:'The decision engine receives an immutable subject, explicit evidence completeness, trust, service context, and a named gate.',data:{subject:{kind:'artifact',digest:{sha256:'9f2c4b81'}},service:{name:'checkout-api',team:'payments',tier:'tier-1'},gate:'production_promotion',evaluated_at:'2026-08-25T09:30:00Z',evidence:[{check_id:'trivy.vulnerabilities',value:1,outcome:'fail',trust:'active'}],completeness:{required_present:['trivy.vulnerabilities'],required_missing:[],pending:[],expired:[],missing_due_to_outage:[]}}},
+  'policy-json-rulebook':{stage:'BLOCK 02 OUTPUT',title:'Effective versioned rulebook',description:'Defaults, floors, tier settings, team overrides, and rollout mode resolve to one content-addressed policy.',data:{policy_id:'payments/production',digest:'sha256:f168063',mode:'warn',sources:['org/defaults','org/safety-floors','tiers/tier-1','teams/payments'],effective_thresholds:{new_code_coverage:85,critical_vulnerabilities:0,p95_latency_regression_percent:5},clamps:[]}},
+  'policy-json-rules':{stage:'BLOCK 03 OUTPUT',title:'Named rule results',description:'Every result explains what was measured, its enforcement class, evidence, and remediation.',data:{results:[{rule:'security.no_new_critical',verdict:'fail',class:'blocking',detail:'1 critical finding introduced by this change',evidence:['sig-trivy-1042'],remediation:{action:'upgrade_or_waive'}},{rule:'testing.new_code_coverage',verdict:'pass',class:'blocking',detail:'87.2% is above the 85% tier-1 threshold',evidence:['sig-junit-882']}]}},
+  'policy-json-raw':{stage:'BLOCK 04 OUTPUT',title:'Raw technical outcome',description:'The raw outcome records what the rulebook concluded before adoption mode changes the pipeline action.',data:{raw_outcome:'blocked',cause:'trusted_blocking_rule_failed',blocking_rules:['security.no_new_critical'],advisory_rules:[],completeness_satisfied:true}},
+  'policy-json-enforced':{stage:'BLOCK 05 OUTPUT',title:'Enforced pipeline outcome',description:'Warn mode preserves the block as technical truth but permits delivery with a visible warning.',data:{raw_outcome:'blocked',mode:'warn',outcome:'proceed_with_warning',mode_downgraded:true,pipeline_action:'continue_and_surface_warning'}},
+  'policy-json-signed':{stage:'BLOCK 06 OUTPUT',title:'Signed immutable decision',description:'The final record binds the exact subject, policy, evidence, explanations, and outcomes to a trusted signer.',data:{decision_id:'decision-checkout-441',subject_uri:'artifact:checkout-api@sha256:9f2c4b81',policy_digest:'sha256:f168063',evidence_digest:'sha256:42b109ef',raw_outcome:'blocked',outcome:'proceed_with_warning',mode:'warn',reason_ids:['security.no_new_critical'],trace_id:'trace-8842',evaluated_at:'2026-08-25T09:30:01Z',signature:{algorithm:'ed25519',key_id:'cqp-prod-2026-08',value:'base64:demo-signature'}}}
+};
+
 function showFlowJson(id){
   const example=flowJsonExamples[id];if(!example)return;
   document.querySelectorAll('.json-toggle').forEach(button=>button.classList.toggle('active',button.dataset.json===id));
@@ -77,7 +86,8 @@ function showAssemblerJson(id){
 
 const flowPanelNotes={
   'gateway-adapter':{title:'Reusable, not per team',copy:'Twenty teams using JUnit share one versioned JUnit adapter. Each pipeline execution supplies its own subject and run context.',json:'flow-json-source'},
-  'evidence-assembler':{title:'One place owns time',copy:'Freshness, deadlines, and production windows are resolved before policy. The resulting policy input contains facts, not a moving clock.',json:'assembler-json-request'}
+  'evidence-assembler':{title:'One place owns time',copy:'Freshness, deadlines, and production windows are resolved before policy. The resulting policy input contains facts, not a moving clock.',json:'assembler-json-request'},
+  'policy-decision':{title:'Truth before enforcement',copy:'The raw outcome preserves what rules concluded. Observe, warn, or enforce controls what the pipeline does without rewriting that conclusion.',json:'policy-json-input'}
 };
 
 function selectFlowPanel(id){
@@ -85,7 +95,7 @@ function selectFlowPanel(id){
   document.querySelectorAll('[data-flow-panel]').forEach(panel=>panel.hidden=panel!==target);
   document.querySelectorAll('.flow-nav-item[data-flow]').forEach(button=>{const active=button.dataset.flow===id;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
   const note=flowPanelNotes[id];document.querySelector('#flow-nav-note-title').textContent=note.title;document.querySelector('#flow-nav-note-copy').textContent=note.copy;
-  if(id==='evidence-assembler')showAssemblerJson(note.json);else showFlowJson(note.json);
+  if(id==='evidence-assembler')showAssemblerJson(note.json);else if(id==='policy-decision')showPolicyJson(note.json);else showFlowJson(note.json);
 }
 
 document.querySelectorAll('.flow-nav-item[data-flow]').forEach(button=>button.addEventListener('click',()=>selectFlowPanel(button.dataset.flow)));
@@ -102,6 +112,13 @@ document.querySelectorAll('[data-assembler-tab]').forEach((button,index,buttons)
   button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowRight')next=(index+1)%buttons.length;if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;if(event.key==='Home')next=0;if(event.key==='End')next=buttons.length-1;buttons[next].focus();selectAssemblerTab(buttons[next].dataset.assemblerTab);});
 });
 selectAssemblerTab('overview');
+
+function showPolicyJson(id){const example=policyJsonExamples[id];if(!example)return;document.querySelectorAll('.policy-json-toggle').forEach(button=>button.classList.toggle('active',button.dataset.json===id));document.querySelector('#policy-json-stage').textContent=example.stage;document.querySelector('#policy-json-title').textContent=example.title;document.querySelector('#policy-json-description').textContent=example.description;document.querySelector('#policy-json-code').textContent=JSON.stringify(example.data,null,2);}
+document.querySelectorAll('.policy-json-toggle').forEach(button=>button.addEventListener('click',()=>showPolicyJson(button.dataset.json)));
+document.querySelector('#policy-copy-json')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(document.querySelector('#policy-json-code').textContent);event.currentTarget.textContent='Copied';setTimeout(()=>event.currentTarget.textContent='Copy JSON',1200);}catch{event.currentTarget.textContent='Select and copy';}});
+function selectPolicyTab(id){document.querySelectorAll('[data-policy-tab-panel]').forEach(panel=>panel.hidden=panel.dataset.policyTabPanel!==id);document.querySelectorAll('[data-policy-tab]').forEach(button=>{const active=button.dataset.policyTab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});}
+document.querySelectorAll('[data-policy-tab]').forEach((button,index,buttons)=>{button.addEventListener('click',()=>selectPolicyTab(button.dataset.policyTab));button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowRight')next=(index+1)%buttons.length;if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;if(event.key==='Home')next=0;if(event.key==='End')next=buttons.length-1;buttons[next].focus();selectPolicyTab(buttons[next].dataset.policyTab);});});
+showPolicyJson('policy-json-input');selectPolicyTab('overview');
 
 function mountDecisionConstruction(){
   const payloads=document.querySelector('.payload-examples');
