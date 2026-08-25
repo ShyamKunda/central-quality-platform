@@ -20,6 +20,34 @@ document.querySelectorAll('[data-tab]').forEach((button,index,buttons)=>{
 document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();selectTab(link.dataset.tabLink);}));
 window.addEventListener('popstate',()=>selectTab(location.hash.slice(1)||'home',false));
 
+const flowJsonExamples={
+  'flow-json-source':{
+    stage:'BLOCK 01 OUTPUT',title:'JUnit native result',description:'A compact representation of the report produced by the team-owned test framework.',data:{testsuite:{name:'checkout-api unit tests',tests:248,failures:2,errors:0,skipped:4,time_seconds:38.72},source_file:'build/test-results/TEST-checkout.xml'}
+  },
+  'flow-json-adapter':{
+    stage:'BLOCK 02 OUTPUT',title:'Canonical signal candidate',description:'The shared adapter preserves the measurement and adds immutable pipeline context before submission.',data:{schema_version:'1.2.0',signal_id:'github:run-8842:junit:unit',occurred_at:'2026-08-25T09:14:22Z',subject:{kind:'build',name:'checkout-api',digest:{sha256:'9f2c4b81'}},producer:{tool:'junit',adapter:'cqp-junit-adapter',adapter_version:'3.1.0'},stage:'build',category:'testing',check_id:'junit.unit_tests',measurement:{kind:'ratio',passed:242,total:248,value:97.58,unit:'percent'},outcome:'fail',evidence:{run_id:'github:run-8842',report_uri:'s3://quality-reports/run-8842/junit.xml'}}
+  },
+  'flow-json-gateway':{
+    stage:'BLOCK 03 OUTPUT',title:'Gateway admission receipt',description:'The gateway verifies the producer and contract, then returns an idempotent receipt.',data:{receipt_id:'receipt-7c84f1',signal_id:'github:run-8842:junit:unit',status:'accepted',schema_valid:true,producer_authenticated:true,subject_verified:true,idempotency:{duplicate:false,key:'github:run-8842:junit:unit'},received_at:'2026-08-25T09:14:24Z'}
+  },
+  'flow-json-ledger':{
+    stage:'BLOCK 04 OUTPUT',title:'Append-only ledger record',description:'Accepted evidence is immutable and addressable by its subject fingerprint and signal ID.',data:{ledger_sequence:184220,record_type:'quality_signal',signal_id:'github:run-8842:junit:unit',subject_uri:'build:checkout-api@sha256:9f2c4b81',check_id:'junit.unit_tests',outcome:'fail',observed_at:'2026-08-25T09:14:22Z',recorded_at:'2026-08-25T09:14:24Z',supersedes:null,integrity:{payload_digest:'sha256:ab7189d4'}}
+  }
+};
+
+function showFlowJson(id){
+  const example=flowJsonExamples[id];if(!example)return;
+  document.querySelectorAll('.json-toggle').forEach(button=>button.classList.toggle('active',button.dataset.json===id));
+  document.querySelector('#flow-json-stage').textContent=example.stage;
+  document.querySelector('#flow-json-title').textContent=example.title;
+  document.querySelector('#flow-json-description').textContent=example.description;
+  document.querySelector('#flow-json-code').textContent=JSON.stringify(example.data,null,2);
+}
+
+document.querySelectorAll('.json-toggle').forEach(button=>button.addEventListener('click',()=>showFlowJson(button.dataset.json)));
+document.querySelector('#flow-copy-json')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(document.querySelector('#flow-json-code').textContent);event.currentTarget.textContent='Copied';setTimeout(()=>event.currentTarget.textContent='Copy JSON',1200);}catch{event.currentTarget.textContent='Select and copy';}});
+showFlowJson('flow-json-source');
+
 function mountDecisionConstruction(){
   const payloads=document.querySelector('.payload-examples');
   if(!payloads||document.querySelector('.decision-construction'))return;
