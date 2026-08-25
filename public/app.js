@@ -6,10 +6,12 @@ const outcomeKind=value=>value==='proceed'?'proceed':value==='blocked'||value===
 const formatSignal=s=>`${Number(s.raw).toLocaleString(undefined,{maximumFractionDigits:3})}${s.unit?` ${s.unit}`:''}`;
 
 function selectTab(id, updateHash=true) {
-  const target=document.getElementById(id)||document.getElementById('home');
+  const route=id==='project-info'?'home':id;
+  const targetId=route==='home'?'project-info':route==='decision-lab'?'home':route;
+  const target=document.getElementById(targetId)||document.getElementById('project-info');
   document.querySelectorAll('.tab-page').forEach(page=>{const active=page===target;page.hidden=!active;page.classList.toggle('active',active);});
-  document.querySelectorAll('[data-tab]').forEach(button=>{const active=button.dataset.tab===target.id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
-  if(updateHash&&location.hash!==`#${target.id}`)history.pushState(null,'',`#${target.id}`);
+  document.querySelectorAll('[data-tab]').forEach(button=>{const active=button.dataset.tab===route;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+  if(updateHash&&location.hash!==`#${route}`)history.pushState(null,'',`#${route}`);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -17,7 +19,7 @@ document.querySelectorAll('[data-tab]').forEach((button,index,buttons)=>{
   button.addEventListener('click',()=>selectTab(button.dataset.tab));
   button.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let next=index;if(event.key==='ArrowRight')next=(index+1)%buttons.length;if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;if(event.key==='Home')next=0;if(event.key==='End')next=buttons.length-1;buttons[next].focus();selectTab(buttons[next].dataset.tab);});
 });
-document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();selectTab(link.dataset.tabLink);}));
+document.querySelectorAll('[data-tab-link]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();const route=link.matches('#project-info button[data-tab-link="home"]')?'decision-lab':link.dataset.tabLink;selectTab(route);}));
 window.addEventListener('popstate',()=>selectTab(location.hash.slice(1)||'home',false));
 
 const flowJsonExamples={
@@ -219,7 +221,7 @@ async function resetDemoMemory(){
   const confirmed=window.confirm('Reset the entire demo? This clears all simulations, waivers, custom thresholds, trust changes, and decision history for every application.');
   if(!confirmed)return;
   const button=document.querySelector('#reset-memory');button.disabled=true;button.textContent='Resetting…';
-  try{const response=await fetch('/api/reset',{method:'POST'});if(!response.ok)throw Error('Reset failed');const result=await response.json();state.apps=result.apps;state.selected=state.apps.find(app=>app.id===state.selected?.id)||state.apps[0];renderList();renderDetail();selectTab('home');}
+  try{const response=await fetch('/api/reset',{method:'POST'});if(!response.ok)throw Error('Reset failed');const result=await response.json();state.apps=result.apps;state.selected=state.apps.find(app=>app.id===state.selected?.id)||state.apps[0];renderList();renderDetail();selectTab('decision-lab');}
   catch(error){alert(error.message);}
   finally{button.disabled=false;button.textContent='Reset demo';}
 }

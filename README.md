@@ -41,7 +41,7 @@ Each section contains overview and detailed flows plus representative JSON outpu
 
 ### 2. Inspect a baseline decision
 
-Open **Home**, select an application, and review:
+Open **Decision Lab**, select an application, and review:
 
 - Enforced and raw outcomes
 - Subject chain
